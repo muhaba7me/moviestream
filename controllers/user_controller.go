@@ -16,8 +16,6 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
-
-
 func HashPassword(password string) (string, error) {
 	HashPassword, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
 	if err != nil {
@@ -52,7 +50,7 @@ func RegisterUser(client *mongo.Client) gin.HandlerFunc {
 
 		var ctx, cancel = context.WithTimeout(c, 100*time.Second)
 		defer cancel()
- var userCollection *mongo.Collection = database.OpenCollection("users", client)
+		var userCollection *mongo.Collection = database.OpenCollection("users", client)
 
 		count, err := userCollection.CountDocuments(ctx, bson.D{{Key: "email", Value: user.Email}})
 
@@ -82,7 +80,6 @@ func RegisterUser(client *mongo.Client) gin.HandlerFunc {
 
 }
 
-
 func LoginUser(client *mongo.Client) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var userLogin models.UserLogin
@@ -95,7 +92,7 @@ func LoginUser(client *mongo.Client) gin.HandlerFunc {
 		var ctx, cancel = context.WithTimeout(c, 100*time.Second)
 		defer cancel()
 
-		var userCollection *mongo.Collection = database.OpenCollection("users",client)
+		var userCollection *mongo.Collection = database.OpenCollection("users", client)
 
 		var foundUser models.User
 		err := userCollection.FindOne(ctx, bson.D{{Key: "email", Value: userLogin.Email}}).Decode(&foundUser)
@@ -109,48 +106,47 @@ func LoginUser(client *mongo.Client) gin.HandlerFunc {
 			c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid email or password"})
 			return
 		}
-      token, refreshToken, err := utils.GenerateAllTokens(foundUser.Email, foundUser.FirstName, foundUser.LastName, foundUser.Role, foundUser.UserID)
+		token, refreshToken, err := utils.GenerateAllTokens(foundUser.Email, foundUser.FirstName, foundUser.LastName, foundUser.Role, foundUser.UserID)
 
-	  if err !=nil{
-		c.JSON(http.StatusInternalServerError, gin.H{"error":"Failed to generate tokens"})
-		return  
-	  }
-	  err = utils.UpdateAllTokens(foundUser.UserID,token, refreshToken, client)
-      if err !=nil{
-		c.JSON(http.StatusInternalServerError, gin.H{"error":"Failed to update tokens"})
-		return 
-	  }
-        http.SetCookie(c.Writer, &http.Cookie{
-   Name:"access_token",
-   Value:token,
-   Path:"/",
-   //Domain:"localhost",
-   MaxAge:86400,
-   Secure:true,
-   HttpOnly:true,
-   SameSite:http.SameSiteNoneMode,
-
-})
-http.SetCookie(c.Writer, &http.Cookie{
-	Name: "refresh_token",
-	Value: refreshToken,
-	Path: "/",
-	MaxAge: 86400,
-	Secure: true,
-	HttpOnly:true,
-	SameSite: http.SameSiteNoneMode,
-
-})
-	   c.JSON(http.StatusOK, models.UserResponse{
-		UserId: foundUser.UserID,
-		FirstName: foundUser.FirstName,
-		LastName: foundUser.LastName,
-		Email: foundUser.Email,
-		Role: foundUser.Role,
-		// Token: token,
-		// RefreshToken: refreshToken,
-		FavouriteGenres: foundUser.FavouriteGenres,
-	  })
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate tokens"})
+			return
+		}
+		err = utils.UpdateAllTokens(foundUser.UserID, token, refreshToken, client)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update tokens"})
+			return
+		}
+		http.SetCookie(c.Writer, &http.Cookie{
+			Name:     "access_token",
+			Value:    token,
+			Path:     "/",
+			Domain:   "",
+			MaxAge:   86400,
+			Secure:   true,
+			HttpOnly: true,
+			SameSite: http.SameSiteNoneMode,
+		})
+		http.SetCookie(c.Writer, &http.Cookie{
+			Name:     "refresh_token",
+			Value:    refreshToken,
+			Path:     "/",
+			Domain:   "",
+			MaxAge:   86400,
+			Secure:   true,
+			HttpOnly: true,
+			SameSite: http.SameSiteNoneMode,
+		})
+		c.JSON(http.StatusOK, models.UserResponse{
+			UserId:    foundUser.UserID,
+			FirstName: foundUser.FirstName,
+			LastName:  foundUser.LastName,
+			Email:     foundUser.Email,
+			Role:      foundUser.Role,
+			// Token: token,
+			// RefreshToken: refreshToken,
+			FavouriteGenres: foundUser.FavouriteGenres,
+		})
 	}
 }
 
@@ -191,9 +187,29 @@ func RefreshTokenHandler(client *mongo.Client) gin.HandlerFunc {
 			return
 		}
 
-		c.SetCookie("access_token", newToken, 86400, "/", "localhost", true, true)          // expires in 24 hours
-		c.SetCookie("refresh_token", newRefreshToken, 604800, "/", "localhost", true, true) //expires in 1 week
+		// c.SetCookie("access_token", newToken, 86400, "/", "localhost", true, true)
+		// c.SetCookie("refresh_token", newRefreshToken, 604800, "/", "localhost", true, true)
+	http.SetCookie(c.Writer, &http.Cookie{
+			Name:     "access_token",
+			Value:    newToken,
+			Path:     "/",
+			Domain:   "",
+			MaxAge:   86400,
+			Secure:   true,
+			HttpOnly: true,
+			SameSite: http.SameSiteNoneMode,
+		})
 
+		http.SetCookie(c.Writer, &http.Cookie{
+			Name:     "refresh_token",
+			Value:    newRefreshToken,
+			Path:     "/",
+			Domain:   "",
+			MaxAge:   604800,
+			Secure:   true,
+			HttpOnly: true,
+			SameSite: http.SameSiteNoneMode,
+		})
 		c.JSON(http.StatusOK, gin.H{"message": "Tokens refreshed"})
 	}
 }
